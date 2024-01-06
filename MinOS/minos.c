@@ -160,7 +160,7 @@ _nosave                   /*                                                  */
   */
 void SysTick_Handler(void)
 {
-    int8_t i;
+    uint8_t i;
     SysTime++;
     if( SysTime >= 0xFFFF0000 )
     {
