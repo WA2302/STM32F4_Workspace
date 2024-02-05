@@ -14,7 +14,7 @@
 OS_TCB *OSTCBCur;                    /* Pointer to currently running TCB      */
 static OS_TCB OSTCBTbl[OS_MAX_TASKS];/* Table of TCBs                         */
 
-uint32_t SysTime = 0;
+uint64_t SysTime = 0;
 
 /**
   * @brief  All tasks MUST be created completed before OSSTart().
@@ -77,7 +77,7 @@ __inline void __Sched (void)
   * @param  None
   * @retval None
   */
-__inline void OSStart (void)
+void OSStart (void)
 {
     __NVIC_SetPriority ( PendSV_IRQn, 0xFF );  /** SCB->SHP[10] = 0xFF;      **/
     __set_PSP(0);
@@ -91,7 +91,7 @@ __inline void OSStart (void)
   * @param  ticks     is the time delay that the task will be suspended.
   * @retval None
   */
-__inline void OSTimeDly( uint16_t ticks )
+void OSTimeDly( uint16_t ticks )
 {
     OSTCBCur->OSTCBWakeTime = OSTime_Now() + ticks;
     while( OSTime_Now() < OSTCBCur->OSTCBWakeTime )
@@ -134,7 +134,7 @@ _nosave                   /*                                                  */
     MSR   PSP, R0         /* Load PSP with new process SP                     */
 
 #if 0 /* Debug code */
-    MOVS   R1, #0x00
+    MOVS  R1, #0x00
     STMDB R0!,{R1} 
     STMDB R0!,{R1} 
     STMDB R0!,{R1} 
@@ -160,18 +160,6 @@ _nosave                   /*                                                  */
   */
 void SysTick_Handler(void)
 {
-    uint8_t i;
     SysTime++;
-    if( SysTime >= 0xFFFF0000 )
-    {
-        for(i = 0;i < OS_MAX_TASKS;i++)
-        {
-            if(OSTCBTbl[i].OSTCBWakeTime >= SysTime)
-            {
-                OSTCBTbl[i].OSTCBWakeTime -= 0xFFFF0000;
-            }
-        }
-        SysTime = 0;
-    }
 }
 /**************** (C) COPYRIGHT 2023 Windy Albert ******** END OF FILE ********/
