@@ -49,6 +49,43 @@ void  TaskCreate(void (*task)(void), uint32_t *stk)
     *(--stk)  = (uint32_t)0x05050505L;  /* R5                                 */
     *(--stk)  = (uint32_t)0x04040404L;  /* R4                                 */
 
+#if (__FPU_PRESENT == 1) && (__FPU_USED == 1)
+    *(--stk) = (uint32_t)0x02000000u;   /* FPSCR                              */
+                                        /* Initialize S0-S31 FP registers     */
+    *(--stk) = (uint32_t)0x41F80000u;   /* S31                                */
+    *(--stk) = (uint32_t)0x41F00000u;   /* S30                                */
+    *(--stk) = (uint32_t)0x41E80000u;   /* S29                                */
+    *(--stk) = (uint32_t)0x41E00000u;   /* S28                                */
+    *(--stk) = (uint32_t)0x41D80000u;   /* S27                                */
+    *(--stk) = (uint32_t)0x41D00000u;   /* S26                                */
+    *(--stk) = (uint32_t)0x41C80000u;   /* S25                                */
+    *(--stk) = (uint32_t)0x41C00000u;   /* S24                                */
+    *(--stk) = (uint32_t)0x41B80000u;   /* S23                                */
+    *(--stk) = (uint32_t)0x41B00000u;   /* S22                                */
+    *(--stk) = (uint32_t)0x41A80000u;   /* S21                                */
+    *(--stk) = (uint32_t)0x41A00000u;   /* S20                                */
+    *(--stk) = (uint32_t)0x41980000u;   /* S19                                */
+    *(--stk) = (uint32_t)0x41900000u;   /* S18                                */
+    *(--stk) = (uint32_t)0x41880000u;   /* S17                                */
+    *(--stk) = (uint32_t)0x41800000u;   /* S16                                */
+    *(--stk) = (uint32_t)0x41700000u;   /* S15                                */
+    *(--stk) = (uint32_t)0x41600000u;   /* S14                                */
+    *(--stk) = (uint32_t)0x41500000u;   /* S13                                */
+    *(--stk) = (uint32_t)0x41400000u;   /* S12                                */
+    *(--stk) = (uint32_t)0x41300000u;   /* S11                                */
+    *(--stk) = (uint32_t)0x41200000u;   /* S10                                */
+    *(--stk) = (uint32_t)0x41100000u;   /* S9                                 */
+    *(--stk) = (uint32_t)0x41000000u;   /* S8                                 */
+    *(--stk) = (uint32_t)0x40E00000u;   /* S7                                 */
+    *(--stk) = (uint32_t)0x40C00000u;   /* S6                                 */
+    *(--stk) = (uint32_t)0x40A00000u;   /* S5                                 */
+    *(--stk) = (uint32_t)0x40800000u;   /* S4                                 */
+    *(--stk) = (uint32_t)0x40400000u;   /* S3                                 */
+    *(--stk) = (uint32_t)0x40000000u;   /* S2                                 */
+    *(--stk) = (uint32_t)0x3F800000u;   /* S1                                 */
+    *(--stk) = (uint32_t)0x00000000u;   /* S0                                 */
+#endif
+
     OSTCBCur                = &OSTCBTbl[task_num];
     OSTCBCur->OSTCBStkPtr   = stk;        /* Initialize the task's stack      */
     OSTCBCur->OSTCBNext     = &OSTCBTbl[0];
@@ -117,6 +154,12 @@ __ASM void PendSV_Handler (void)
                           /*                                                  */
     STMDB R0!, {R4-R11}   /* PUSH r4-11 to current process stack              */
                           /*                                                  */
+#if (__FPU_PRESENT == 1) && (__FPU_USED == 1)
+    VMRS    R1, FPSCR     /* Save the FPU registers                           */
+    STR R1, [R0, #-4]!    /*                                                  */
+    VSTMDB  R0!, {S0-S31} /* PUSH r0-31 to current process stack              */
+#endif
+                          /*                                                  */
     LDR   R1, =OSTCBCur   /* OSTCBCur->OSTCBStkPtr = PSP;                     */
     LDR   R1, [R1]        /*                                                  */
     STR   R0, [R1]        /* R0 is SP of process being switched out           */
@@ -129,20 +172,62 @@ _nosave                   /*                                                  */
     STR   R2, [R0]        /*                                                  */
                           /*                                                  */
     LDR   R0, [R2]        /* PSP = OSTCBCur->OSTCBStkPtr                      */
+                          /*                                                  */
+#if (__FPU_PRESENT == 1) && (__FPU_USED == 1)    
+    VLDMIA  R0!, {S0-S31} /* Restore the FPU registers                        */
+    LDMIA   R0!, {R1}     /*                                                  */
+    VMSR    FPSCR, R1     /* POP r0-31 from current process stack             */
+#endif
+                          /*                                                  */
     LDMIA R0!, {R4-R11}   /* POP r4-11 from new process stack                 */
                           /*                                                  */
     MSR   PSP, R0         /* Load PSP with new process SP                     */
 
-#if 0 /* Debug code */
-    MOVS  R1, #0x00
-    STMDB R0!,{R1} 
-    STMDB R0!,{R1} 
-    STMDB R0!,{R1} 
-    STMDB R0!,{R1} 
-    STMDB R0!,{R1} 
-    STMDB R0!,{R1} 
-    STMDB R0!,{R1} 
-    STMDB R0!,{R1} 
+#if 0                     /* Fill the stack for debug mode                    */
+    MOVS  R1, #0x00       /* Fill with 00                                     */
+    #if (__FPU_PRESENT == 1) && (__FPU_USED == 1)
+    STMDB R0!,{R1}        /* Fill the stack "S0"                              */
+    STMDB R0!,{R1}        /* Fill the stack "S1"                              */
+    STMDB R0!,{R1}        /* Fill the stack "S2"                              */
+    STMDB R0!,{R1}        /* Fill the stack "S3"                              */
+    STMDB R0!,{R1}        /* Fill the stack "S4"                              */
+    STMDB R0!,{R1}        /* Fill the stack "S5"                              */
+    STMDB R0!,{R1}        /* Fill the stack "S6"                              */
+    STMDB R0!,{R1}        /* Fill the stack "S7"                              */
+    STMDB R0!,{R1}        /* Fill the stack "S8"                              */
+    STMDB R0!,{R1}        /* Fill the stack "S9"                              */
+    STMDB R0!,{R1}        /* Fill the stack "S10"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S11"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S12"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S13"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S14"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S15"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S16"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S17"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S18"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S19"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S20"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S21"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S22"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S23"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S24"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S25"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S26"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S27"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S28"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S29"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S30"                             */
+    STMDB R0!,{R1}        /* Fill the stack "S31"                             */
+    STMDB R0!,{R1}        /* Fill the stack "FPSCR"                           */
+    #endif
+    STMDB R0!,{R1}        /* Fill the stack "R4"                              */
+    STMDB R0!,{R1}        /* Fill the stack "R5"                              */
+    STMDB R0!,{R1}        /* Fill the stack "R6"                              */
+    STMDB R0!,{R1}        /* Fill the stack "R7"                              */
+    STMDB R0!,{R1}        /* Fill the stack "R8"                              */
+    STMDB R0!,{R1}        /* Fill the stack "R9"                              */
+    STMDB R0!,{R1}        /* Fill the stack "R10"                             */
+    STMDB R0!,{R1}        /* Fill the stack "R11"                             */
 #endif
 
     ORR   LR, LR, #0x04   /* Ensure exception return uses process stack       */
