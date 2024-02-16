@@ -5,7 +5,7 @@
   * @version V2.1
   * @date    04-November-2023
   * @brief   This is the head file for MinOS, a NO GRAB OS for embedded system.
-  *          OSTaskCreate( task, stk ) @USAGE OSTaskCreate( Task00, 0x80 );
+  *          TASK_REG_LEVEL_x()        @USAGE TASK_REG_LEVEL_3(Demo1_task, 0x80);
   *          void OSStart( void );     @USAGE OSStart( );
   *          void OSTimeDly( ticks );  @USAGE OSTimeDly( 1000 );
   *          OSWait( con )             @USAGE OSWait( var >= 1 );
